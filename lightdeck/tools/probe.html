@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lightdeck Probe</title>
+<style>
+  body { font: 15px/1.4 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; }
+  button { padding: .6rem 1rem; margin: .25rem .25rem .25rem 0; font-size: 1rem; }
+  pre { background: #111; color: #cfc; padding: 1rem; overflow: auto; min-height: 14rem; white-space: pre-wrap; }
+  .hint { color: #555; }
+</style>
+</head>
+<body>
+<h1>Lightdeck Probe</h1>
+<p class="hint">Nur lesend, außer Schritt 2 (sendet ein harmloses Hello-Paket). Chrome oder Edge auf Mac, Windows oder Linux.
+Die Hersteller-App muss vorher komplett beendet sein, sonst ist die Lampe belegt.</p>
+<button id="scan">1. Lampe suchen und auslesen</button>
+<button id="hello">2. GVM-Hello senden (nur GVM)</button>
+<button id="copy">3. Ausgabe kopieren</button>
+<pre id="out"></pre>
+<script type="module">
+import { GVM_SERVICE, GVM_CHARACTERISTIC, hello, parseFrame } from '../src/gvm.mjs';
+
+const out = document.getElementById('out');
+const log = (...a) => { out.textContent += a.join(' ') + '\n'; };
+const hex = (dv) => Array.from(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength), b => b.toString(16).padStart(2, '0')).join(' ');
+let server, gvmChar;
+
+// Web Bluetooth only exposes services that are listed up front.
+const probeServices = [
+  GVM_SERVICE, 0x1800, 0x1801, 0x180a, 0x180f, 0x1812, 0x1827, 0x1828,
+  0xfff0, 0xffe0, 0xfee7, 0xfd50, 0xa201,
+  '0000ae00-0000-1000-8000-00805f9b34fb', '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+];
+
+document.getElementById('scan').onclick = async () => {
+  out.textContent = '';
+  try {
+    const dev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: probeServices });
+    log('Name:', dev.name ?? '(kein Name)', '| id:', dev.id);
+    server = await dev.gatt.connect();
+    const services = await server.getPrimaryServices();
+    log('Dienste gefunden:', services.length);
+    for (const s of services) {
+      log('\nSERVICE', s.uuid);
+      for (const c of await s.getCharacteristics()) {
+        const p = Object.entries(c.properties).filter(([, v]) => v).map(([k]) => k).join(',');
+        let val = '';
+        if (c.properties.read && !['00002a4d'].some(x => c.uuid.startsWith(x))) {
+          try { val = ' = ' + hex(await c.readValue()); } catch { val = ' = (nicht lesbar)'; }
+        }
+        log('  CHAR', c.uuid, `[${p}]`, val);
+        if (c.uuid === GVM_CHARACTERISTIC) gvmChar = c;
+      }
+    }
+    log('\nAuswertung:');
+    log(gvmChar ? 'GVM Legacy-GATT erkannt (Pfad A, einfach).' : 'Kein GVM-Legacy-Dienst sichtbar.');
+    log(services.some(s => s.uuid.startsWith('00001828') || s.uuid.startsWith('00001827'))
+      ? 'Bluetooth-Mesh-Dienst sichtbar (Pfad B, verschlüsselt, aufwendiger).' : 'Kein Mesh-Dienst sichtbar.');
+    log('Hinweis: Dienste außerhalb der Probe-Liste zeigt der Browser nicht an. Fehlt etwas, nutze zusätzlich die App nRF Connect.');
+  } catch (e) { log('Fehler:', e.name, e.message); }
+};
+
+document.getElementById('hello').onclick = async () => {
+  if (!gvmChar) return log('Erst Schritt 1 mit einer GVM-Lampe ausführen.');
+  try {
+    await gvmChar.startNotifications();
+    gvmChar.addEventListener('characteristicvaluechanged', (e) => {
+      const bytes = new Uint8Array(e.target.value.buffer);
+      const f = parseFrame(bytes);
+      log('<-', hex(e.target.value), f ? `(gültig: ${f.type})` : '(CRC/Format ungültig)');
+    });
+    const frame = hello();
+    await gvmChar.writeValueWithoutResponse(frame);
+    log('->', Array.from(frame, b => b.toString(16).padStart(2, '0')).join(' '));
+  } catch (e) { log('Fehler:', e.name, e.message); }
+};
+
+document.getElementById('copy').onclick = () => navigator.clipboard.writeText(out.textContent);
+</script>
+</body>
+</html>

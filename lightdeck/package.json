@@ -1,0 +1,8 @@
+{
+  "name": "lightdeck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One controller for GVM, Viltrox/Weeylite and SmallRig video lights",
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
