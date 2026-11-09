@@ -5,13 +5,13 @@ const connEl = document.getElementById('conn');
 const cards = new Map();
 let lights = [];
 
-const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+import { connect } from './api.js';
+let api = null;
 
 function sendDebounced(card, id, patch) {
   card.pending = { ...card.pending, ...patch };
   clearTimeout(card.timer);
-  card.timer = setTimeout(() => { const p = card.pending; card.pending = {}; post(`/api/lights/${encodeURIComponent(id)}/state`, p).catch(() => setConn(false)); }, 120);
+  card.timer = setTimeout(() => { const p = card.pending; card.pending = {}; api.set(id, p).catch((e) => setConn(false, String(e.message ?? e))); }, 120);
 }
 
 function slider(card, id, { key, label, min, max, step = 1, unit = '' }) {
@@ -63,10 +63,11 @@ function update(l) {
   st.textContent = l.status.ok === false ? l.status.error : l.status.ok ? 'gesendet' : 'noch nichts gesendet';
 }
 
-function setConn(ok) { connEl.textContent = ok ? 'Mit Bridge verbunden' : 'Bridge nicht erreichbar, versuche erneut ...'; connEl.classList.toggle('bad', !ok); }
+function setConn(ok, text) { connEl.textContent = text ?? (ok ? 'Verbunden' : 'Nicht verbunden'); connEl.classList.toggle('bad', !ok); }
 
 async function init() {
-  lights = await (await fetch('/api/lights')).json();
+  api = await connect({ onUpdate: update, onConn: setConn });
+  lights = api.lights;
   root.replaceChildren();
   cards.clear();
   for (const brand of Object.keys(BRANDS)) {
@@ -76,12 +77,9 @@ async function init() {
     group.forEach((l) => grid.append(build(l)));
     root.append(h, grid);
   }
-  lights.forEach(update); setConn(true);
-  const es = new EventSource('/api/events');
-  es.onmessage = (e) => { setConn(true); update(JSON.parse(e.data)); };
-  es.onerror = () => setConn(false);
+  lights.forEach(update);
 }
-document.getElementById('all-on').addEventListener('click', () => post('/api/all', { on: true }));
-document.getElementById('all-off').addEventListener('click', () => post('/api/all', { on: false }));
-init().catch(() => { setConn(false); setTimeout(init, 3000); });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+document.getElementById('all-on').addEventListener('click', () => api?.setAll({ on: true }).catch((e) => setConn(false, String(e.message ?? e))));
+document.getElementById('all-off').addEventListener('click', () => api?.setAll({ on: false }).catch((e) => setConn(false, String(e.message ?? e))));
+init().catch((e) => { setConn(false, 'Start fehlgeschlagen: ' + (e.message ?? e)); setTimeout(init, 3000); });
+if ('serviceWorker' in navigator && !window.lightdeckNative) navigator.serviceWorker.register('sw.js').catch(() => {});

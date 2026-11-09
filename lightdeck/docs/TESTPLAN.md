@@ -20,12 +20,12 @@ npm run dev                       # Bridge im Mock-Modus, http://localhost:8787
 
 ## 2. Viltrox K90
 
-Wichtig: Senden geht nur mit Linux-Bluetooth (Raspberry Pi) oder ESP32, nicht vom Mac. Auf dem Pi: `sudo node bridge/server.mjs` (hcitool braucht Root).
-1. Lampe in der Weeylite-/Viltrox-App auf Kanal 1, Gruppe A stellen (Merken).
-2. Web-App: K90 an/aus.
+Kein Pi nötig: Die iPhone-App (oder der Mac) sendet das Beacon direkt per CoreBluetooth. Die App muss dabei im Vordergrund sein.
+1. Lampe in der Weeylite-/Viltrox-App auf Kanal 1, Gruppe A stellen (merken), Hersteller-App schließen.
+2. Lightdeck-App auf dem iPhone: K90 an/aus.
    - Erfolg: reagiert. Dann gilt das Beacon-Schema für die K90.
-   - Keine Reaktion: Kanal/Gruppe in `config/lights.json` anpassen (`channel` 1 bis 19, `group` 0 bis 5), sonst nutzt die K90 ein anderes Schema, dann bitte die ViltroxLink-APK in den Ordner legen.
-3. Helligkeit prüfen (0 bis 100). Wenn die Lampe bei 100 % nicht voll hell wird oder zu schnell hell: melden, dann ändere ich den Wertebereich.
+   - Keine Reaktion: Kanal/Gruppe in `app/lights.json` anpassen (`channel` 1 bis 19, `group` 0 bis 5), sonst nutzt die K90 ein anderes Schema, dann bitte die ViltroxLink-APK in den Ordner legen.
+3. Helligkeit prüfen (0 bis 100). Wenn die Lampe bei 100 % nicht voll hell wird: melden, dann ändere ich den Wertebereich.
 
 ## 3. SmallRig RC 120B
 
@@ -33,8 +33,17 @@ Der Treiber sendet noch nicht (Mesh-Transport fehlt). Test vorher:
 1. Probe mit zurückgesetzter Lampe: erscheint ein unprovisioniertes Mesh-Gerät (Dienst `0x1827`)?
 2. Erst danach baue ich die Provisionierung. Lampe dazu in der SmallGoGo-App ausräumen/zurücksetzen (merken, welche Lampe welche ist).
 
-## 4. iPhone
+## 4. iPhone-App installieren (kein Pi, keine Bridge)
 
-1. Bridge auf dem Mac/Pi starten, IP herausfinden (`ipconfig getifaddr en0`).
-2. Safari: `http://<IP>:8787`, Teilen, "Zum Home-Bildschirm".
-3. Prüfen: öffnet als eigene App, Schieberegler flüssig, zeigt "Mit Bridge verbunden".
+Voraussetzung: Mac mit Xcode, iPhone per Kabel, Apple-ID (kostenlos reicht, die App läuft dann 7 Tage und wird neu installiert; mit Entwicklerkonto 99 USD/Jahr ein Jahr).
+
+```bash
+cd lightdeck/ios
+open Lightdeck.xcodeproj
+```
+
+1. In Xcode: Target "Lightdeck", Signing & Capabilities, Team = deine Apple-ID wählen. Falls die Bundle-ID vergeben ist, `com.noahscholz.lightdeck` ändern.
+2. iPhone als Ziel wählen, Run. Beim ersten Start Bluetooth erlauben. Auf dem iPhone: Einstellungen, Allgemein, VPN & Geräteverwaltung, dem Entwickler vertrauen. Entwicklermodus muss an sein.
+3. Prüfen: oben steht "Direkt per Bluetooth", Schieberegler reagieren, Lampen reagieren je nach Schritt 1 bis 3.
+
+Alternative ohne App: `npm start` am Mac und Safari auf `http://<IP>:8787` (nur GVM, weil Safari kein Bluetooth hat; die Bridge übernimmt es dann).

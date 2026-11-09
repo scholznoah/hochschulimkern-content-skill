@@ -3,3 +3,6 @@
 node_modules/
 config/lights.json
 .claude/
+ios/build/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/

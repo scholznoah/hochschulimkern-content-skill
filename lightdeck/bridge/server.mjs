@@ -5,8 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BRANDS, DEFAULT_STATE, encode, mergeState } from '../src/lights.mjs';
-import { PacketCounter } from '../src/viltrox.mjs';
+import { BRANDS } from '../src/lights.mjs';
+import { createCore } from '../src/core.mjs';
 import { MockBackend } from './backends/mock.mjs';
 import { SmallrigStubBackend } from './backends/smallrig-stub.mjs';
 
@@ -29,85 +29,50 @@ export async function defaultBackends({ mock }) {
   return { gvm: new GvmNobleBackend(), viltrox: new ViltroxHciBackend(), smallrig: new SmallrigStubBackend() };
 }
 
-export function createBridge({ config, backends, staticDir = path.join(ROOT, 'app') }) {
-  const lights = new Map(config.lights.map((l) => [l.id, { ...l }]));
-  const states = new Map(config.lights.map((l) => [l.id, { ...DEFAULT_STATE }]));
-  const status = new Map(config.lights.map((l) => [l.id, { ok: null, error: null }]));
-  const queues = new Map(); // per light: latest pending state wins
-  const counters = new Map();
+export function createBridge({ config, backends, staticDir = path.join(ROOT, 'app'), srcDir = path.join(ROOT, 'src') }) {
+  const core = createCore({ config, backends });
   const sse = new Set();
-
-  const view = (id) => ({ ...lights.get(id), dev: undefined, state: states.get(id), status: status.get(id) });
-  const broadcast = (id) => { const msg = `data: ${JSON.stringify(view(id))}\n\n`; for (const r of sse) r.write(msg); };
-
-  // Coalescing sender: while a send is running, newer states replace the waiting one.
-  function enqueue(id, wasOn) {
-    const q = queues.get(id) ?? { running: false, pending: null };
-    queues.set(id, q);
-    q.pending = { state: { ...states.get(id) }, wasOn };
-    if (q.running) return;
-    q.running = true;
-    (async () => {
-      while (q.pending) {
-        const { state, wasOn: w } = q.pending; q.pending = null;
-        const light = lights.get(id);
-        try {
-          if (!counters.has(light.channel ?? 1)) counters.set(light.channel ?? 1, new PacketCounter());
-          const msgs = encode(light, state, { counter: counters.get(light.channel ?? 1), wasOn: w });
-          await backends[light.brand].send(light, msgs);
-          status.set(id, { ok: true, error: null });
-        } catch (e) { status.set(id, { ok: false, error: String(e.message ?? e) }); }
-        broadcast(id);
-      }
-      q.running = false;
-    })();
-  }
+  core.subscribe((v) => { const msg = `data: ${JSON.stringify(v)}\n\n`; for (const r of sse) r.write(msg); });
 
   const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
   const readBody = (req) => new Promise((resolve, reject) => {
     let b = ''; req.on('data', (c) => { b += c; if (b.length > 10_000) { reject(new Error('body too large')); req.destroy(); } });
     req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch { reject(new Error('invalid JSON')); } });
   });
+  const serve = async (res, dir, rel) => {
+    const file = path.join(dir, rel);
+    if (!file.startsWith(dir + path.sep)) return json(res, 403, { error: 'forbidden' });
+    const data = await readFile(file).catch(() => null);
+    if (!data) return json(res, 404, { error: 'not found' });
+    res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-cache' });
+    res.end(data);
+  };
 
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://x');
-      if (url.pathname === '/api/lights' && req.method === 'GET') return json(res, 200, [...lights.keys()].map(view));
+      if (url.pathname === '/api/lights' && req.method === 'GET') return json(res, 200, core.list());
       if (url.pathname === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
         res.write(': hi\n\n'); sse.add(res); req.on('close', () => sse.delete(res)); return;
       }
       const m = url.pathname.match(/^\/api\/lights\/([^/]+)\/state$/);
       if (m && req.method === 'POST') {
-        const id = decodeURIComponent(m[1]);
-        if (!lights.has(id)) return json(res, 404, { error: 'unknown light' });
-        const prev = states.get(id);
-        let next;
-        try { next = mergeState(prev, await readBody(req)); } catch (e) { return json(res, 400, { error: e.message }); }
-        states.set(id, next); enqueue(id, prev.on); broadcast(id);
-        return json(res, 202, view(id));
+        try { return json(res, 202, core.setState(decodeURIComponent(m[1]), await readBody(req))); }
+        catch (e) { return json(res, e.code === 404 ? 404 : 400, { error: e.message }); }
       }
-      if (url.pathname === '/api/all' && req.method === 'POST') { // body: { on: bool }, optional brand
-        let patch; try { patch = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
-        const { brand, ...rest } = patch;
-        for (const id of lights.keys()) {
-          if (brand && lights.get(id).brand !== brand) continue;
-          const prev = states.get(id); states.set(id, mergeState(prev, rest)); enqueue(id, prev.on); broadcast(id);
-        }
-        return json(res, 202, [...lights.keys()].map(view));
+      if (url.pathname === '/api/all' && req.method === 'POST') { // body: patch, optional brand
+        try { const { brand, ...rest } = await readBody(req); return json(res, 202, core.setAll(rest, brand)); }
+        catch (e) { return json(res, 400, { error: e.message }); }
       }
       if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
       let rel = decodeURIComponent(url.pathname); if (rel.endsWith('/')) rel += 'index.html';
-      const file = path.join(staticDir, rel);
-      if (!file.startsWith(staticDir + path.sep)) return json(res, 403, { error: 'forbidden' });
-      const data = await readFile(file).catch(() => null);
-      if (!data) return json(res, 404, { error: 'not found' });
-      res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream', 'cache-control': rel === '/sw.js' ? 'no-cache' : 'no-cache' });
-      res.end(data);
+      if (rel.startsWith('/src/')) return serve(res, srcDir, rel.slice(4)); // shared modules for the web app
+      return serve(res, staticDir, rel);
     } catch (e) { json(res, 500, { error: String(e.message ?? e) }); }
   });
-  server.close_all = async () => { for (const r of sse) r.end(); for (const b of new Set(Object.values(backends))) await b.close?.(); };
-  return { server, states, lights };
+  server.close_all = async () => { for (const r of sse) r.end(); await core.close(); };
+  return { server, core };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

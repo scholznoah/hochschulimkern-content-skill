@@ -10,14 +10,16 @@ npm run dev     # Bridge im Mock-Modus, Oberfläche auf http://localhost:8787
 npm start       # echte Lampen (siehe docs/TESTPLAN.md)
 ```
 
-Auf dem iPhone: Safari, `http://<IP der Bridge>:8787`, Teilen, "Zum Home-Bildschirm".
+Auf dem iPhone ohne weiteres Gerät: native Hülle in `ios/` (öffnet `ios/Lightdeck.xcodeproj` in Xcode, siehe `docs/TESTPLAN.md`, Abschnitt 4). Sie lädt dieselbe Oberfläche und dieselben Treiber und spricht Bluetooth direkt.
 
 ## Aufbau
 
 - `src/`: Treiber (`gvm`, `viltrox`, `smallrig`) und `lights.mjs` (Zustand zu Funkbefehlen)
 - `bridge/server.mjs`: HTTP-API und Auslieferung der Web-App, keine Abhängigkeiten
 - `bridge/backends/`: `mock`, `gvm-noble` (GATT), `viltrox-hci` (Linux, BlueZ), `smallrig-stub`
-- `app/`: installierbare Web-App (Manifest, Service Worker)
+- `src/core.mjs`: Zustand und Sender, gemeinsam für Bridge und iPhone-App
+- `ios/`: iPhone-App (SwiftUI + WKWebView, `BleController.swift` für GATT und iBeacon-Senden)
+- `app/`: Oberfläche (läuft in der iPhone-App oder über die Bridge im Browser)
 - `config/lights.example.json`: Lampenliste (Kopie als `config/lights.json` anpassen)
 - `docs/APK-ANALYSE.md`, `docs/TESTPLAN.md`
 

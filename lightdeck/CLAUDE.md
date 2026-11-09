@@ -60,7 +60,7 @@ Aperture/Amaran und Neewer sind vorerst nicht nötig. Der Nutzer besitzt kein An
 
 - Bridge (`bridge/`), Web-App (`app/`), Treiber-Abbildung (`src/lights.mjs`), SmallRig-Encoder (`src/smallrig.mjs`, Entwurf), Viltrox-Szenentabelle. 23 Tests grün, Oberfläche im Mock-Modus bei 360 bis 2560 px geprüft.
 - Ungetestet an Hardware: `gvm-noble`, `viltrox-hci` (nur Befehlsaufbau getestet), alles Funkseitige. Ablauf: `docs/TESTPLAN.md`.
-- Viltrox senden geht nicht vom Mac (CoreBluetooth), nur Linux/Pi per `hcitool` (Root) oder ESP32.
+- **Architektur-Änderung (Wunsch des Nutzers: kein Raspberry Pi):** native iOS-Hülle `ios/` (SwiftUI + WKWebView, Schema `lightdeck://`). Sie lädt `app/` und `src/` aus dem Bundle, die Treiber laufen in JS, Swift macht nur Bluetooth (GATT-Schreiben für GVM, iBeacon-Senden für Viltrox per CLBeaconRegion). iBeacon-Senden geht auf iOS nur im Vordergrund. Kostenlose Apple-ID: App verfällt nach 7 Tagen. Der Satz "Mac kann kein Viltrox senden" war falsch. Bridge (`bridge/`) bleibt optional (Entwicklung, Mac-Browser). Ungetestet: Lauf auf echtem iPhone (kein Simulator installiert), nur Build für Simulator und Tests mit simulierter Native-Schicht.
 - SmallRig: Mesh-Transport fehlt (Schritt 3).
 
 ## Nächste Schritte
