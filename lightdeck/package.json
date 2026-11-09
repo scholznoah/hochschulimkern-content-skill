@@ -1,8 +1,13 @@
 {
   "name": "lightdeck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "One controller for GVM, Viltrox/Weeylite and SmallRig video lights",
-  "scripts": { "test": "node --test test/*.test.mjs" }
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node bridge/server.mjs",
+    "dev": "node bridge/server.mjs --mock"
+  },
+  "optionalDependencies": { "@abandonware/noble": "^1.9.2-26" }
 }

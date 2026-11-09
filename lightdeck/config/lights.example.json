@@ -1,0 +1,9 @@
+{
+  "lights": [
+    { "id": "gvm-sd600d", "name": "GVM SD600D", "brand": "gvm", "bleName": "BT" },
+    { "id": "vx-k90-a", "name": "Viltrox K90 A", "brand": "viltrox", "channel": 1, "group": 0 },
+    { "id": "vx-k90-b", "name": "Viltrox K90 B", "brand": "viltrox", "channel": 1, "group": 1 },
+    { "id": "sr-rc120b-1", "name": "SmallRig RC 120B 1", "brand": "smallrig" },
+    { "id": "sr-rc120b-2", "name": "SmallRig RC 120B 2", "brand": "smallrig" }
+  ]
+}

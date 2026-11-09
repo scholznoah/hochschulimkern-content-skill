@@ -56,6 +56,13 @@ Aperture/Amaran und Neewer sind vorerst nicht nötig. Der Nutzer besitzt kein An
 - APK-Seiten (APKPure, APKMirror, Play Store) sind aus der Cloud-Sitzung gesperrt. GitHub, PyPI, npm sind erreichbar.
 - Der Nutzer hat die APKs heruntergeladen (auf einer SSD, nicht iCloud). Sie müssen als Ordner für die Sitzung freigegeben werden, oder per Git in `lightdeck/apks/`, oder lokal mit einem Analyseskript ausgewertet werden.
 
+## Stand der Umsetzung (2026-11-09, ohne Hardware gebaut)
+
+- Bridge (`bridge/`), Web-App (`app/`), Treiber-Abbildung (`src/lights.mjs`), SmallRig-Encoder (`src/smallrig.mjs`, Entwurf), Viltrox-Szenentabelle. 23 Tests grün, Oberfläche im Mock-Modus bei 360 bis 2560 px geprüft.
+- Ungetestet an Hardware: `gvm-noble`, `viltrox-hci` (nur Befehlsaufbau getestet), alles Funkseitige. Ablauf: `docs/TESTPLAN.md`.
+- Viltrox senden geht nicht vom Mac (CoreBluetooth), nur Linux/Pi per `hcitool` (Root) oder ESP32.
+- SmallRig: Mesh-Transport fehlt (Schritt 3).
+
 ## Nächste Schritte
 
 1. ~~APKs statisch analysieren~~ erledigt (2026-11-09), siehe `docs/APK-ANALYSE.md`. Offen: ViltroxLink-APK selbst (nur WeeylitePro lag vor).

@@ -66,3 +66,14 @@ export function toIBeaconManufacturerData(cmd, beacon = IBEACON) {
 }
 
 export const toHex = hex;
+
+// ---- Scene numbering (from WeeylitePro BleLed.SCENE_ID, static analysis) ----
+// The app's list index maps to the wire scene id through this table. Index 0 is "off/none".
+export const SCENE_WIRE = Object.freeze([0, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+
+/** Scene by UI list index (see SCENE_WIRE). */
+export function sceneByIndex({ index, ...rest }) {
+  const wire = SCENE_WIRE[clamp(index, 0, SCENE_WIRE.length - 1)];
+  return scene({ ...rest, scene: wire });
+}
