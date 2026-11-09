@@ -28,6 +28,12 @@ Aperture/Amaran und Neewer sind vorerst nicht nötig. Der Nutzer besitzt kein An
 - **GVM**: Öffentliches Protokoll nur für die 800D3X-RGB (dirtyredz/gvm-led): GATT-Dienst `...1910`, Frame `4C 54 | LEN | ID | TYPE | Body | CRC16/XMODEM | FF`. Für die SD600D nicht bestätigt. Die App hat zusätzlich einen verschlüsselten Tuya-Mesh-Pfad.
 - **Viltrox/Weeylite**: Befehle sind 16 Byte in einer iBeacon-Werbung (dsluo/esphome-viltrox). Für die K90 nicht bestätigt. Beispiele im Quelldokument widersprechen sich bei der Helligkeit (Bytes über 100).
 - **SmallRig**: Keine öffentliche Info. Laut Hersteller Mesh bis 100 m, vermutlich verschlüsselt.
+
+### Ergebnis der APK-Analyse (2026-11-09, Details: `docs/APK-ANALYSE.md`)
+
+- **SmallGoGo**: Echtes Bluetooth-Mesh (Realtek-Stack, Vendor-Modell), Schlüssel entstehen lokal in der App, kein Cloud-Zwang. Befehle: Lum `0x42`, HSI `0x33`, CCT `0x34`, RGBW `0x36`, FX. Eigenes Netz nach Zurücksetzen der Lampe ist plausibel.
+- **GVM**: App hat direktes GATT (Scan `BT_LED...`, Dienst `...1910`, 4C54-Frames) und einen Tuya-Mesh-Pfad für Gruppen. SD600D steht als `id 46` in der Geräteliste (Tuya-PID `glhmigqo`); welcher Pfad gilt, entscheidet die Probe. Vorsicht: Es gibt auch "SD600D-II".
+- **WeeylitePro**: Beacon-Schema (iBeacon, Major 10, Minor 110) und alle Byte-Layouts bestätigt, `src/viltrox.mjs` deckt sich mit der App. K90 nicht belegt (ViltroxLink-APK lag nicht vor).
 - Alle Angaben stammen aus Hobbyprojekten, nicht von Herstellern, und sind an echter Hardware nur teilweise (GVM 800D3X) geprüft.
 
 ## Entscheidungen
@@ -52,7 +58,7 @@ Aperture/Amaran und Neewer sind vorerst nicht nötig. Der Nutzer besitzt kein An
 
 ## Nächste Schritte
 
-1. APKs von GVM LED, ViltroxLink/WeeylitePro, SmallGoGo bekommen und mit jadx statisch analysieren. Zuerst SmallGoGo (nichts bekannt) und GVM (SD600D: GATT oder Mesh?), dann Viltrox (K90).
+1. ~~APKs statisch analysieren~~ erledigt (2026-11-09), siehe `docs/APK-ANALYSE.md`. Offen: ViltroxLink-APK selbst (nur WeeylitePro lag vor).
 2. Probe (`tools/probe.html`) mit SD600D und K90 am Mac laufen lassen und das Ergebnis auswerten.
 3. Treiber für SmallRig ergänzen, sobald das Protokoll klar ist. Falls verschlüsseltes Mesh: Lampe zurücksetzen und in eigenes Mesh einbinden prüfen.
 4. Bridge (Node, noble/bleak) mit HTTP/WebSocket-Schnittstelle bauen, dann die Oberfläche als installierbare Web-App (Manifest, Home-Bildschirm), ein Bereich pro Marke.
